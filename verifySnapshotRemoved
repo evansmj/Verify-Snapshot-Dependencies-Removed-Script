@@ -1,0 +1,39 @@
+#!/bin/bash
+
+snapshot="-SNAPSHOT"
+
+projects=()
+
+IFS=$'\n' read -r -d '' -a projects < <(bash ./gradlew projects | grep Project | sed -n 's/^.*'\':'\([^'\'']*\)'\''.*$/\1/p')
+
+echo "Checking projects:"
+
+if [[ ${#projects[@]} -le 0 ]]; then
+  echo "ERROR: No projects found."
+  exit 1
+fi
+
+for i in ${projects[@]}
+do
+  echo "...$i"
+done
+
+dependencies=()
+
+for (( c=0; c<${#projects[@]}; c++ ))
+do
+  dependencies[$c]=$(bash ./gradlew ${projects[$c]}:dependencies --configuration compile)
+done
+
+echo "Checking each list of dependencies for -SNAPSHOT..."
+
+for (( c=0; c<${#dependencies[@]}; c++ ))
+do
+  if [[ "${dependencies[$c]}" == *"$snapshot"* ]]; then
+    echo "Snapshot found in ${projects[$c]}!!!:"
+    echo "${dependencies[$c]}" | grep "\-SNAPSHOT"
+    exit 1
+  fi
+done
+
+echo "Success verifying snapshot dependency removal."
